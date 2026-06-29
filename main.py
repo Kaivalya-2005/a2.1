@@ -10,6 +10,11 @@ import jwt
 from pydantic import BaseModel
 from fastapi.responses import JSONResponse
 
+import os
+import yaml
+from dotenv import dotenv_values
+from fastapi import Query
+
 app = FastAPI()
 
 ALLOWED_ORIGIN = "https://dash-imw15r.example.com"
@@ -87,3 +92,70 @@ async def verify(req: VerifyRequest):
             status_code=401,
             content={"valid": False},
         )
+
+def to_bool(value):
+    return str(value).lower() in ("true", "1", "yes", "on")
+
+
+@app.get("/effective-config")
+async def effective_config(set: list[str] = Query(default=[])):
+    config = {
+        "port": 8000,
+        "workers": 1,
+        "debug": False,
+        "log_level": "info",
+        "api_key": "default-secret-000",
+    }
+
+    # YAML
+    if os.path.exists("config.development.yaml"):
+        with open("config.development.yaml") as f:
+            config.update(yaml.safe_load(f) or {})
+
+    # .env
+    env = dotenv_values(".env")
+
+    if "APP_PORT" in env:
+        config["port"] = int(env["APP_PORT"])
+
+    if "NUM_WORKERS" in env:
+        config["workers"] = int(env["NUM_WORKERS"])
+
+    if "APP_LOG_LEVEL" in env:
+        config["log_level"] = env["APP_LOG_LEVEL"]
+
+    if "APP_API_KEY" in env:
+        config["api_key"] = env["APP_API_KEY"]
+
+    # OS Environment
+    if os.getenv("APP_PORT"):
+        config["port"] = int(os.getenv("APP_PORT"))
+
+    if os.getenv("APP_WORKERS"):
+        config["workers"] = int(os.getenv("APP_WORKERS"))
+
+    if os.getenv("APP_LOG_LEVEL"):
+        config["log_level"] = os.getenv("APP_LOG_LEVEL")
+
+    if os.getenv("APP_API_KEY"):
+        config["api_key"] = os.getenv("APP_API_KEY")
+
+    # CLI overrides
+    for item in set:
+        if "=" not in item:
+            continue
+
+        key, value = item.split("=", 1)
+
+        if key == "port":
+            config["port"] = int(value)
+        elif key == "workers":
+            config["workers"] = int(value)
+        elif key == "debug":
+            config["debug"] = to_bool(value)
+        else:
+            config[key] = value
+
+    config["api_key"] = "****"
+
+    return config
