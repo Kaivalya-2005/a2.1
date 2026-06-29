@@ -33,11 +33,13 @@ dQIDAQAB
 ISSUER = "https://idp.exam.local"
 AUDIENCE = "tds-wwoh3luq.apps.exam.local"
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[ALLOWED_ORIGIN],
+    allow_origins=["*"],
     allow_credentials=False,
-    allow_methods=["GET", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
